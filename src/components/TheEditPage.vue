@@ -108,29 +108,15 @@
             TheEditorWindow
         },
         data() {
-            // получим порядковый номер заметки в хранилище
-            let index = parseInt(this.$route.params.index) - 1;
-
-            // массив содержащий данные по заметкам
-            let notes = this.$store.state.notes;
-
-            // объект содержащий изначальные данные по текущей заметке
-            let origin = notes[index] ? notes[index] : undefined;
-
-            // чтобы не мутировать данные напрямую, создадим копию 
-            // с которой в дальнейшем будет непосредственно проводится работа
-            let note = origin ? this.createCopy(origin) : undefined;
-
-            // данный массив содержит "снимки" состояний заметки, реализуя механизм "истории"
-            let history = note ? [this.createCopy(note)] : [];
+            let {index, origin, note, history} = this.getBasicParameters();
 
             return {
                 index,
                 origin,
                 note,
                 history,
+                throttle: false,                    // {boolean} переменная-заглушка
                 historyPoint: 0,                    // {number} текущая позиция в "истории", позволяет следить за ходом изменений состояния заметки
-                timeTravel: false,                  // {boolean} переменная-заглушка, необходимая в реализации механизма "истории"
                 deleteTaskIndex: undefined,         // {number} порядковый номер задачи, для которой требуется подтверждение удаления
                 confirmationRequired: false,        // {boolean} индикатор необходимости отображения окна для подтверждения действия
                 taskIndex: undefined,               // {number} порядковый номер задачи, для которой требуется отредактировать описание
@@ -177,36 +163,88 @@
         },
         watch: {
             /**
-             * Следит за наличием изменений в объекте
-             * заметки, при изменении требует отобразить
-             * кнопки "истории" состояний.
-             * Также добавляет текущее состояние данного
-             * объекта в массив history для возможности
-             * отката состояния вперед-назад.
+             * Следит за наличием изменений в объекте заметки.
              */
             note: {
                 deep: true,
                 handler() {
-                    // наличие установленной переменной timeTravel в true
-                    // говорит о том что идет ручное переключение 
-                    // между состояниями заметки и текущее полученнное состояние 
-                    // добавлять в историю не требуется
-                    if (this.timeTravel) {
-                        this.timeTravel = false;
+                    // наличие установленной переменной throttle в true
+                    // говорит о том что текущее состояние добавлять в историю не требуется
+                    if (this.throttle) {
+                        this.throttle = false;
                     } else {
-                        this.historyButtonsRequired = true;
+                        // в данной ветке условия идет реализация механизма "истории",
+                        // который позволяет пользователю откатываться по состояниям заметки
+                        // вперед-назад, заполняя массив hidtory
+                        // 
+                        // ВАЖНО! Текущее состояние может быть неопределено
+                        // и установлено в значение undefined. Данная ситуация
+                        // может возникнуть например если пользователь в ручную
+                        // изменяет параметр в адресной строке при этом 
+                        // в хранилище запись с таким номером отсутствует
+                        if (this.note) {
+                            let copy = this.createCopy(this.note);
 
-                        // создадим копию текущего состояния
-                        let copy = this.createCopy(this.note);
-
-                        this.history.push(copy);
-                        this.historyPoint += 1;
+                            this.history.push(copy);
+                            this.historyPoint += 1;
+                            this.historyButtonsRequired = true;
+                        }
                     }
                 }
+            },
+            /**
+             * Отслеживает изменение текущего маршрута.
+             * Данный наблюдатель сработает в большинстве случаев
+             * при ручном изменении параметра в адресной строке.
+             * 
+             * @param {object} to - объект содержащий описание текущего маршрута.
+             */
+            $route(to) {
+                // т.к. при изменении маршрута будет вызван наблюдатель
+                // за объектом note, нужно избежать лишних манипуляций с 
+                // историей, установив заглушку
+                this.throttle = true;
+
+                let {index, origin, note, history} = this.getBasicParameters();
+
+                this.index = index;
+                this.origin = origin;
+                this.note = note;
+                this.history = history;
+                this.historyButtonsRequired = false;
+                this.historyPoint = 0;
             }
         },
         methods: {
             ...mapMutations(["updateData", "removeFromStore"]),
+            /**
+             * Возвращает объект содержащий порядковый номер
+             * текущей заметки в общем списке, объект содержащий 
+             * данные по текущей заметке и его копию, а также массив,
+             * который будет содержать состояния заметки в разные моменты времени.
+             * 
+             * @returns {object}
+             */
+            getBasicParameters() {
+                // получим порядковый номер заметки в хранилище
+                let index = parseInt(this.$route.params.index) - 1;
+
+                // массив содержащий данные по заметкам
+                let notes = this.$store.state.notes;
+
+                // объект содержащий изначальные данные по текущей заметке
+                let origin = notes[index] ? notes[index] : undefined;
+
+                // чтобы не мутировать данные напрямую, создадим копию 
+                // с которой в дальнейшем будет непосредственно проводится работа
+                let note = origin ? this.createCopy(origin) : undefined;
+
+                // данный массив содержит "снимки" состояний заметки, реализуя механизм "истории"
+                let history = note ? [this.createCopy(note)] : [];
+
+                
+                return {index, origin, note, history};
+            },
             /**
              * Создает задачу для текущей заметки.
              * 
@@ -334,7 +372,7 @@
              * заметке, приводя ее в исходное состояние.
              */
             cancelMutations() {
-                this.timeTravel = true;                      // установим заглушку, чтобы не дублировать состояние в истории
+                this.throttle = true;                        // установим заглушку, чтобы не дублировать состояние в истории
                 this.historyPoint = 0;                       // сбросим наблюдение за ходом изменений
                 this.note = this.createCopy(this.origin);    // возвращает состояние заметки в исходное состояние
                 this.history = [this.createCopy(this.note)]; // почистим историю
@@ -414,7 +452,7 @@
                 if (this.historyPoint === 0) return;
 
                 this.historyPoint -= 1;
-                this.timeTravel = true; // установим заглушку, чтобы не дублировать состояние в истории
+                this.throttle = true; // установим заглушку, чтобы не дублировать состояние в истории
 
                 let previousCondition = this.history[this.historyPoint];
 
@@ -429,7 +467,7 @@
                 if (this.historyPoint >= this.history.length - 1) return;
 
                 this.historyPoint += 1;
-                this.timeTravel = true; // установим заглушку, чтобы не дублировать состояние в истории
+                this.throttle = true; // установим заглушку, чтобы не дублировать состояние в истории
 
                 let nextCondition = this.history[this.historyPoint];
 
