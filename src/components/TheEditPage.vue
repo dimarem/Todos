@@ -116,18 +116,19 @@
                 note,
                 history,
                 throttle: false,                    // {boolean} переменная-заглушка
-                historyPoint: 0,                    // {number} текущая позиция в "истории", позволяет следить за ходом изменений состояния заметки
-                deleteTaskIndex: undefined,         // {number} порядковый номер задачи, для которой требуется подтверждение удаления
                 confirmationRequired: false,        // {boolean} индикатор необходимости отображения окна для подтверждения действия
-                taskIndex: undefined,               // {number} порядковый номер задачи, для которой требуется отредактировать описание
-                taskDescription: undefined,         // {string} копия описания задачи, которую пользователь намерен изменить
                 editorRequired: false,              // {boolean} индикатор необходимости отображения окна для редактирования описания задачи
-                actionToConfirm: undefined,         // {string} содержит название действия пользователя, требующее подтверждения
-                confirmationWindowTitle: undefined, // {string} т.к. окно для подтверждения действия это переиспользуемый компонент, он может иметь разный заголовок
                 historyButtonsRequired: false,      // {boolean} индикатор необходимости отображения кнопок переключения по "истории" состояний заметки
                 saveIndicatorRequired: false,       // {boolean} индикатор необходимости отображения записи об успешном сохранении состояния заметки
-                innerTimer: undefined,              // {number} номер таймера в методе processSave
-                
+                dataAreFixed: true,                 // {boolean} индикатор того, зафиксированы ли все изменения с текущей заметкой 
+                historyPoint: 0,                    // {number} текущая позиция в "истории", позволяет следить за ходом изменений состояния заметки
+                deleteTaskIndex: undefined,         // {number} порядковый номер задачи, для которой требуется подтверждение удаления
+                taskIndex: undefined,               // {number} порядковый номер задачи, для которой требуется отредактировать описание
+                innerTimer: undefined,              // {number} номер таймера формируемый в методе processSave
+                actionToConfirm: undefined,         // {string} содержит название действия пользователя, требующее подтверждения
+                confirmationWindowTitle: undefined, // {string} т.к. окно для подтверждения действия это переиспользуемый компонент, он может иметь разный заголовок
+                leavingDirection: undefined,        // {string} содержит путь, по которому переходит пользователь, когда у него имеются несохраненные данные по заметке
+                taskDescription: undefined,         // {string} копия описания задачи, которую пользователь намерен изменить
             }
         },
         computed: {
@@ -163,7 +164,9 @@
         },
         watch: {
             /**
-             * Следит за наличием изменений в объекте заметки.
+             * Следит за наличием изменений в объекте заметки,
+             * добавляя в случае необходимости копию состояния заметки
+             * в массив history.
              */
             note: {
                 deep: true,
@@ -188,6 +191,7 @@
                             this.history.push(copy);
                             this.historyPoint += 1;
                             this.historyButtonsRequired = true;
+                            this.dataAreFixed = false;
                         }
                     }
                 }
@@ -198,19 +202,47 @@
              * при ручном изменении параметра в адресной строке.
              */
             $route() {
+                let {index, origin, note, history} = this.getBasicParameters();
+
                 // т.к. при изменении маршрута будет вызван наблюдатель
                 // за объектом note, нужно избежать лишних манипуляций с 
                 // историей, установив заглушку
                 this.throttle = true;
-
-                let {index, origin, note, history} = this.getBasicParameters();
-
+                // сбросим указатель фиксации данных
+                this.dataAreFixed = true;
                 this.index = index;
                 this.origin = origin;
                 this.note = note;
                 this.history = history;
                 this.historyButtonsRequired = false;
                 this.historyPoint = 0;
+            }
+        },
+        /**
+         * Обрабатывает ситуацию, когда пользователь
+         * внес изменения, но не сохранил, выводя окно
+         * предупреждения об этом.
+         * 
+         * @param {object} to - объект маршрута на который переходит пользователь.
+         * @param {object} from - объект маршрута с которого переходит пользователь.
+         * @param {function} next - функция-финализатор.
+         */
+        beforeRouteLeave(to, from, next) {
+            // если были проведены какие-то изменения в заметке,
+            // но данные не сохранены, уведомим про это пользователя
+            if (!this.dataAreFixed) {
+                // отобразим окно подтверждения сохранения
+                this.confirmationRequired = true;
+                // установим заголовок данного окна
+                this.confirmationWindowTitle = "У вас есть несохраненные данные, всеравно продолжить?";
+                // установим действие, которое требуется подтвердить
+                this.actionToConfirm = "proceed-leaving";
+                // запомним куда переходил посититель
+                this.leavingDirection = to.path;
+
+                next(false);
+            } else {
+                next();
             }
         },
         methods: {
@@ -374,10 +406,20 @@
                 this.historyPoint = 0;                       // сбросим наблюдение за ходом изменений
                 this.note = this.createCopy(this.origin);    // возвращает состояние заметки в исходное состояние
                 this.history = [this.createCopy(this.note)]; // почистим историю
+                this.dataAreFixed = true;                    // состояние заметки снова зафиксировано
                 this.closeConfirmationWindow();
                 this.$nextTick(() => {
                     this.historyButtonsRequired = false;     // кнопки переключения по "истории" состояний заметки пока не нужны
                 })
+            },
+            /**
+             * Данный метод срабатывает, когда пользователь
+             * покидает текущую страницу и имеются несохраненные данные,
+             * при этом переход совершается, а данные не сохраняются.
+             */
+            proceedLeaving() {
+                this.dataAreFixed = true;
+                this.$router.push(this.leavingDirection);
             },
             /**
              * Подтверждает действие пользователя,
@@ -387,6 +429,7 @@
                 if (this.actionToConfirm === "task-removal") this.removeTask();
                 if (this.actionToConfirm === "note-removal") this.removeNote();
                 if (this.actionToConfirm === "cancel-mutation") this.cancelMutations();
+                if (this.actionToConfirm === "proceed-leaving") this.proceedLeaving();
             },
             /**
              * Отображает окно для редактирования описания задачи.
@@ -436,6 +479,9 @@
 
                 // уведомим пользователя об успешном сохранении
                 this.saveIndicatorRequired = true;
+
+                // укажем, что состояние заметки зафиксировано
+                this.dataAreFixed = true;
 
                 if (this.innerTimer) clearTimeout(this.innerTimer);
 
