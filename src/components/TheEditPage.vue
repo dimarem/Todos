@@ -222,12 +222,43 @@
          * Обрабатывает ситуацию, когда пользователь
          * внес изменения, но не сохранил, выводя окно
          * предупреждения об этом.
+         * Срабатывает, когда пользователь покидает 
+         * текущую страницу, в точности повторяет логику хука beforeRouteUpdate.
          * 
          * @param {object} to - объект маршрута на который переходит пользователь.
          * @param {object} from - объект маршрута с которого переходит пользователь.
          * @param {function} next - функция-финализатор.
          */
         beforeRouteLeave(to, from, next) {
+            // если были проведены какие-то изменения в заметке,
+            // но данные не сохранены, уведомим про это пользователя
+            if (!this.dataAreFixed) {
+                // отобразим окно подтверждения сохранения
+                this.confirmationRequired = true;
+                // установим заголовок данного окна
+                this.confirmationWindowTitle = "У вас есть несохраненные данные, всеравно продолжить?";
+                // установим действие, которое требуется подтвердить
+                this.actionToConfirm = "proceed-leaving";
+                // запомним куда переходил посититель
+                this.leavingDirection = to.path;
+
+                next(false);
+            } else {
+                next();
+            }
+        },
+        /**
+         * Обрабатывает ситуацию, когда пользователь
+         * внес изменения, но не сохранил, выводя окно
+         * предупреждения об этом.
+         * Срабатывает, когда текущий маршрут изменяется (например вручную), 
+         * в точности повторяет логику хука beforeRouteLeave.
+         * 
+         * @param {object} to - объект маршрута на который переходит пользователь.
+         * @param {object} from - объект маршрута с которого переходит пользователь.
+         * @param {function} next - функция-финализатор.
+         */
+        beforeRouteUpdate(to, from, next) {
             // если были проведены какие-то изменения в заметке,
             // но данные не сохранены, уведомим про это пользователя
             if (!this.dataAreFixed) {
@@ -271,7 +302,6 @@
 
                 // данный массив содержит "снимки" состояний заметки, реализуя механизм "истории"
                 let history = note ? [this.createCopy(note)] : [];
-
                 
                 return {index, origin, note, history};
             },
@@ -419,6 +449,7 @@
              */
             proceedLeaving() {
                 this.dataAreFixed = true;
+                this.confirmationRequired = false;
                 this.$router.push(this.leavingDirection);
             },
             /**
@@ -496,7 +527,8 @@
                 if (this.historyPoint === 0) return;
 
                 this.historyPoint -= 1;
-                this.throttle = true; // установим заглушку, чтобы не дублировать состояние в истории
+                this.dataAreFixed = false; // укажем, что изменения не зафиксированы
+                this.throttle = true;      // установим заглушку, чтобы не дублировать состояние в истории
 
                 let previousCondition = this.history[this.historyPoint];
 
@@ -511,7 +543,8 @@
                 if (this.historyPoint >= this.history.length - 1) return;
 
                 this.historyPoint += 1;
-                this.throttle = true; // установим заглушку, чтобы не дублировать состояние в истории
+                this.dataAreFixed = false; // укажем, что изменения не зафиксированы
+                this.throttle = true;      // установим заглушку, чтобы не дублировать состояние в истории
 
                 let nextCondition = this.history[this.historyPoint];
 

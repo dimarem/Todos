@@ -62,7 +62,7 @@
             }
 
             header {
-                padding: 2rem 1rem;
+                padding: 2rem;
                 background-color: #455a64;
                 color: white;
             }
