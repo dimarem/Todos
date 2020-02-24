@@ -83,7 +83,6 @@
                     border: none;
                     outline: none;
                     padding: .8rem 1rem;
-                    border-radius: 3px;
                     font-size: .9rem;
                     font-family: $sans-bold;
                     background-color: rgb(235, 235, 235);
