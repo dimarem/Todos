@@ -5,7 +5,7 @@ import Vuex        from "vuex/dist/vuex.min.js";
 import VueRouter   from "vue-router/dist/vue-router.min.js";
 import TheMainPage from "./components/TheMainPage.vue";
 import TheEditPage from "./components/TheEditPage.vue";
-import The404Page from "./components/The404Page.vue";
+import The404Page  from "./components/The404Page.vue";
 
 /**
  * Подключим Vuex.
