@@ -41,7 +41,7 @@ const store = new Vuex.Store({
         },
         /**
          * Обновляет данные в хранищиле.
-         * Сохраняет данные в localStorage.
+         * Сохраняет данные в localStorage
          * 
          * @param {object} state - хранилище. 
          * @param {object} data - Объект содержащий информацию для обновления.
