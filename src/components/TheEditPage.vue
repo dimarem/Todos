@@ -92,20 +92,18 @@
      * Компонент формирующий страницу 
      * для редактирования заметки.
      */
-    import Input                 from "./components/Input.vue";
-    import Checkbox              from "./components/Checkbox.vue";
-    import TheEditControls       from "./components/TheEditControls.vue";
-    import TheConfirmationWindow from "./components/TheConfirmationWindow.vue";
-    import TheEditorWindow       from "./components/TheEditorWindow.vue";
-    import { mapMutations }      from "vuex";
+    import Input            from "./components/Input.vue";
+    import Checkbox         from "./components/Checkbox.vue";
+    import TheEditControls  from "./components/TheEditControls.vue";
+    import { mapMutations } from "vuex";
     
     export default {
         components: {
             Input,
             Checkbox,
             TheEditControls,
-            TheConfirmationWindow,
-            TheEditorWindow
+            TheConfirmationWindow: () => import(/* webpackChunkName: "TheConfirmationWindow" */ "./components/TheConfirmationWindow.vue"),
+            TheEditorWindow: () => import(/* webpackChunkName: "TheEditorWindow" */ "./components/TheEditorWindow.vue"),
         },
         data() {
             let {index, origin, note, history} = this.getBasicParameters();

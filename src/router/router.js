@@ -2,7 +2,6 @@ import Vue         from "vue/dist/vue.min.js";
 import VueRouter   from "vue-router/dist/vue-router.min.js";
 import TheMainPage from "../components/TheMainPage.vue";
 import TheEditPage from "../components/TheEditPage.vue";
-import The404Page  from "../components/The404Page.vue";
 
 /**
  * Подключим vue-роутер и настроим маршруты.
@@ -20,7 +19,7 @@ const routes = [
     },
     {
         path: "*",
-        component: The404Page
+        component: () => import(/* webpackChunkName: "The404Page" */ "../components/The404Page.vue")
     }
 ]
 

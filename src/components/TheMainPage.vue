@@ -49,14 +49,13 @@
      */
     import Input                      from "./components/Input.vue";
     import Note                       from "./components/Note.vue";
-    import TheConfirmationWindow      from "./components/TheConfirmationWindow.vue";
     import { mapState, mapMutations } from "vuex";
 
     export default {
         components: {
             Input,
             Note,
-            TheConfirmationWindow
+            TheConfirmationWindow: () => import(/* webpackChunkName: "TheConfirmationWindow" */ "./components/TheConfirmationWindow.vue"),
         },
         data() {
             return {
